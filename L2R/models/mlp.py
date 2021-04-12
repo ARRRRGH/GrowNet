@@ -6,7 +6,8 @@ from .splinear import SpLinear
 
 
 class MLP_1HL(nn.Module):
-    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True):
+    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True,
+                 dropout=0.3, *args, **kwargs):
         super(MLP_1HL, self).__init__()
         self.in_layer = SpLinear(dim_in, dim_hidden1) if sparse else nn.Linear(dim_in, dim_hidden1)
         self.out_layer = nn.Linear(dim_hidden1, 1)
@@ -15,6 +16,9 @@ class MLP_1HL(nn.Module):
         if bn:
             self.bn = nn.BatchNorm1d(dim_hidden1)
             self.bn2 = nn.BatchNorm1d(dim_in)
+            
+        if dropout > 0:
+            dropout = nn.Dropout(dropout)
 
     def forward(self, x, lower_f):
         if lower_f is not None:
@@ -34,7 +38,8 @@ class MLP_1HL(nn.Module):
 
 
 class MLP_2HL(nn.Module):
-    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True):
+    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True
+                 ,*args, **kwargs):
         super(MLP_2HL, self).__init__()
         self.in_layer = SpLinear(dim_in, dim_hidden1) if sparse else nn.Linear(dim_in, dim_hidden1)
         self.dropout_layer = nn.Dropout(0.0)
@@ -64,7 +69,8 @@ class MLP_2HL(nn.Module):
         return model
 
 class MLP_3HL(nn.Module):
-    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True):
+    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True,
+                 *args, **kwargs):
         super(MLP_3HL, self).__init__()
         self.in_layer = SpLinear(dim_in, dim_hidden1) if sparse else nn.Linear(dim_in, dim_hidden1)
         self.dropout_layer = nn.Dropout(0.0)
@@ -97,7 +103,8 @@ class MLP_3HL(nn.Module):
         return model
 
 class MLP_4HL(nn.Module):
-    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True):
+    def __init__(self, dim_in, dim_hidden1, dim_hidden2, sparse=False, bn=True,
+                 *args, **kwargs):
         super(MLP_3HL, self).__init__()
         self.in_layer = SpLinear(dim_in, dim_hidden1) if sparse else nn.Linear(dim_in, dim_hidden1)
         self.dropout_layer = nn.Dropout(0.0)
@@ -133,8 +140,12 @@ class MLP_4HL(nn.Module):
 
 
 class DNN(nn.Module):
-    def __init__(self, dim_in, dim_hidden, n_hidden=20, sparse=False, bn=True, drop_out=0.3):
+    def __init__(self, dim_in, dim_hidden2, n_hidden=20, sparse=False, bn=True, drop_out=0.3,
+                 return_encoding=True, *args, **kwargs):
         super(DNN, self).__init__()
+        dim_hidden = dim_hidden2
+        self.return_encoding = return_encoding
+
         if sparse:
             self.in_layer = SpLinear(dim_in, dim_hidden)
         else:
@@ -151,8 +162,16 @@ class DNN(nn.Module):
         self.hidden_layers = nn.Sequential(*hidden_layers)
         self.out_layer = nn.Linear(dim_hidden, 1)
 
-    def forward(self, x):
+    def forward(self, x, lower_f):
+        if lower_f is not None:
+            x = torch.cat([x, lower_f], dim=1)
+            
         out = self.in_act(self.in_layer(x))
-        out = self.hidden_layers(out)
-        out = self.out_layer(out)
-        return out.squeeze()
+        enc = self.hidden_layers(out)
+        out = self.out_layer(enc)
+        
+        if self.return_encoding:
+            return env, out.squeeze()
+        
+        else:
+            return out.squeeze()
